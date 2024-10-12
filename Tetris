@@ -1,0 +1,417 @@
+from cmu_graphics import *
+import math
+import random
+
+# uses clockwise and counter-clockwise rotation, settings icon in the upper left
+# for adjusting playing speed, keeps track of high score from round to round
+
+def onAppStart(app):
+    app.instructions = True
+    app.highScore = None
+    reset(app)
+    
+def reset(app):
+    app.width = 400
+    app.height = 400
+    app.paused = False
+    app.stepsPerSecond = 3
+    app.rows = 15
+    app.cols = 10
+    app.boardLeft = 95
+    app.boardTop = 50
+    app.boardWidth = 210
+    app.boardHeight = 280
+    app.cellBorderWidth = 2
+    app.board = [([None]*app.cols) for row in range(app.rows)]
+    app.piece = None
+    app.boardPiece = [[False]*app.cols for row in range(app.rows)]
+    app.pieceColor = None
+    app.score = 0
+    app.gameOver = False
+    app.settings = False
+    app.settingsX, app.settingsY = 20, 20
+    app.settingsR = 15
+    loadTetrisPieces(app)
+    loadNextPiece(app)
+
+def redrawAll(app):
+    drawBackground(app)
+    drawScoreBox(app)
+    drawHighScore(app)
+    drawTitle(app)
+    drawBoard(app)
+    drawPiece(app)
+    drawBoardBorder(app)
+    drawPaused(app)
+    drawGameOver(app)
+    drawInstructions(app)
+    drawStar(20, 20, 15, 15, fill='turquoise')
+    drawSettings(app)
+    
+def drawSettings(app):
+    if app.settings == False:
+        return
+    drawRect(app.width//2, app.height//2, app.width*0.55, app.height*0.5, 
+             fill= 'black', align = 'center', border='turquoise', borderWidth= 4)
+    drawLabel('SETTINGS', app.width//2, app.height//2-75, fill= 'turquoise', 
+              bold = True, size = 25, font= 'orbitron', align='center')
+    speeds = ['EASY','REGULAR','HARD']
+    
+    drawLabel(f'current speed: {speeds[int(app.stepsPerSecond/2)-1]}', app.width//2, 280, 
+              bold = True, size = 10, font= 'orbitron', fill='turquoise', align='center')
+    #speed buttons
+    
+    speeds = ['EASY', 'REGULAR','HARD']
+    for i in range(3):
+        drawRect(app.width//2, 175+(35 *i), 70, 26, align = 'center', border='turquoise', 
+                 borderWidth= 2)
+        drawLabel(f'{speeds[i]}',app.width//2, 175+(35 *i), fill='turquoise', font='orbitron', 
+                  bold=True, size = 10, align='center')
+                  
+def getButton(app, x, y):
+    if 165<=x<=235 and 162<=y<=188: return 'easy'
+    elif 165<=x<=235 and 197<=y<=223: return 'regular'
+    elif 165<=x<=235 and 132<=y<=256: return 'hard'
+    elif distance(app, x, y, app.settingsX, app.settingsY) < app.settingsR:
+        return 'settings'
+    #start button
+    startLeft, startRight = app.width//2 - 25, app.width//2 + 25
+    startTop, startBottom = 265, 285
+    if (startLeft <= x <= startRight and startTop <= y <= startBottom):
+        return 'start'
+
+    
+def drawInstructions(app):
+    if not app.instructions:
+        return
+    drawRect(app.width//2, app.height//2, app.width*0.55, app.height*0.5, 
+             fill= 'black', align = 'center', border='turquoise', borderWidth= 4)
+    drawLabel('How To Play', app.width//2, app.height//2-75, fill= 'turquoise', 
+              bold = True, size = 25, font= 'orbitron', align='center')
+    drawLabel(f"- press 'start' to begin", app.width//4, app.height//2 - 40,
+              fill= 'turquoise', bold = True, size = 10, font= 'orbitron', 
+              align='left')
+    drawLabel(f"- use 'up' and 'down' to rotate", app.width//4, app.height//2 -20,
+              fill= 'turquoise', bold = True, size = 10, font= 'orbitron', 
+              align='left')
+    drawLabel(f"- use 'left' and 'right to move", app.width//4, app.height//2,
+              fill= 'turquoise', bold = True, size = 10, font= 'orbitron', 
+              align='left')
+    drawLabel(f"- use 'space' to hard drop the piece", app.width//4, app.height//2 + 20,
+              fill= 'turquoise', bold = True, size = 10, font= 'orbitron', 
+              align='left')
+    drawRect(app.width//2, 275, 50, 20, align = 'center', border='turquoise', 
+             borderWidth= 2)
+    drawLabel('START', app.width//2, 275, fill='turquoise', font='orbitron', 
+              bold=True, size = 11, align='center')
+
+def drawHighScore(app):
+    drawRect(app.width*0.8, app.height*0.5, 75, 80, fill='black', 
+             border='turquoise', borderWidth= 2)
+    centerOfScoreBox = app.width*0.8 + (70//2)
+    topOfScoreBox = app.height*0.5 + 15
+    drawLabel(f'  High Score:', centerOfScoreBox, topOfScoreBox,fill='turquoise', 
+              size= 10, font ='orbitron', bold = True, align='center')
+    drawLabel(f'{app.highScore}', centerOfScoreBox, topOfScoreBox + 30, 
+              fill = 'turquoise', font = 'orbitron', bold = True, align ='center')
+    
+def drawBackground(app):
+    drawRect(0,0, app.width, app.height, fill='black')
+    
+def drawTitle(app):
+    drawRect(200, 25, app.boardWidth, 40, fill= 'black', 
+             align = 'center', border='turquoise', borderWidth= 3)
+    drawLabel('TETRIS', 200, 25, size=20,fill= 'turquoise', bold = True,
+              font= 'orbitron', align='center' )
+    
+def drawGameOver(app):
+    if not app.gameOver:
+        return
+    drawRect(app.width//2, app.height//2, app.width*0.75, app.height*0.4, 
+             fill= 'black', align = 'center', border='turquoise', borderWidth= 4)
+    drawLabel(f'GAME OVER', app.width//2, app.height//2 -40, fill= 'turquoise', 
+              bold = True, size = 40, font= 'orbitron', align='center')
+    drawLabel(f'SCORE: {app.score}', app.width//2, app.height//2 + 5,
+              fill= 'turquoise', bold = True, size = 14, font= 'orbitron', 
+              align='center')
+    drawLabel(f'BEST: {app.highScore}', app.width//2, app.height//2 + 20,
+              fill= 'turquoise', bold = True, size = 14, font= 'orbitron', 
+              align='center')
+    drawLabel("press 'r' to restart", app.width//2, app.height//2 + 40,
+              fill= 'turquoise', bold = True, size = 12, font= 'orbitron', 
+              align='center')
+    
+def drawPaused(app):
+    if not app.paused:
+        return
+    drawRect(app.width//2, app.height//2, app.width*0.5, app.height*0.5, 
+             fill= 'black', align = 'center', border='turquoise', borderWidth= 4)
+    drawLabel('PAUSED', app.width//2, app.height//2, fill= 'turquoise', 
+              bold = True, size = 40, font= 'orbitron', align='center')
+    drawLabel("press 'p' to resume", app.width//2, app.height//2 + 30,
+              fill= 'turquoise', bold = True, size = 12, font= 'orbitron', 
+              align='center')
+             
+    
+def drawScoreBox(app):
+    drawRect(app.width*0.8, app.height*0.2, 75, 80, fill='black', 
+             border='turquoise', borderWidth= 2)
+    centerOfScoreBox = app.width*0.8 + (70//2)
+    topOfScoreBox = app.height*0.2 + 15
+    drawLabel(f'  Your Score:', centerOfScoreBox, topOfScoreBox,fill='turquoise', 
+              size= 10, font ='orbitron', bold = True, align='center')
+    drawLabel(f'{app.score}', centerOfScoreBox, topOfScoreBox + 30, 
+              fill = 'turquoise', font = 'orbitron', bold = True, align ='center')
+
+def drawBoard(app):
+    for row in range(app.rows):
+        for col in range(app.cols):
+            drawCell(app, row, col, app.board[row][col])
+
+def drawBoardBorder(app):
+  # draw the board outline (with double-thickness):
+  drawRect(app.boardLeft, app.boardTop, app.boardWidth, app.boardHeight,
+           fill=None, border='turquoise',
+           borderWidth=2*app.cellBorderWidth)
+
+def drawCell(app, row, col, color):
+    cellLeft, cellTop = getCellLeftTop(app, row, col)
+    cellWidth, cellHeight = getCellSize(app)
+    
+    drawRect(cellLeft, cellTop, cellWidth, cellHeight,
+             fill=color, border='turquoise',
+             borderWidth=app.cellBorderWidth)
+
+def getCellLeftTop(app, row, col):
+    cellWidth, cellHeight = getCellSize(app)
+    cellLeft = app.boardLeft + col * cellWidth
+    cellTop = app.boardTop + row * cellHeight
+    return (cellLeft, cellTop)
+
+def getCellSize(app):
+    cellWidth = app.boardWidth / app.cols
+    cellHeight = app.boardHeight / app.rows
+    return (cellWidth, cellHeight)
+    
+def loadTetrisPieces(app):
+    # Seven "standard" pieces (tetrominoes)
+    iPiece = [[  True,  True,  True,  True ]]
+    jPiece = [[  True, False, False ],
+              [  True,  True,  True ]]
+    lPiece = [[ False, False,  True ],
+              [  True,  True,  True ]]
+    oPiece = [[  True,  True ],
+              [  True,  True ]]
+    sPiece = [[ False,  True,  True ],
+              [  True,  True, False ]]
+    tPiece = [[ False,  True, False ],
+              [  True,  True,  True ]]
+    zPiece = [[  True,  True, False ],
+              [ False,  True,  True ]] 
+    app.tetrisPieces = [ iPiece, jPiece, lPiece, oPiece,
+                         sPiece, tPiece, zPiece ]
+    app.tetrisPieceColors = [ 'red', 'yellow', 'magenta', 'pink',
+                              'cyan', 'green', 'orange' ]
+                              
+def onMousePress(app, mouseX, mouseY):
+    if app.instructions == True and getButton(app, mouseX, mouseY) == 'start':
+        app.instructions = False
+    if getButton(app, mouseX, mouseY) == 'settings':
+        app.settings = not app.settings
+    if getButton(app, mouseX, mouseY) == 'easy': app.stepsPerSecond = 2
+    if getButton(app, mouseX, mouseY) == 'regular': app.stepsPerSecond = 4
+    if getButton(app, mouseX, mouseY) == 'hard': app.stepsPerSecond = 6
+        
+def distance(app, x0, y0, x1, y1):
+    return ((x1-x0)**2 + (y1-y0)**2)**0.5
+                              
+
+def pieceLocation(app, pieceIndex): #find the left and top corner of the piece
+    app.pieceShape = app.tetrisPieces[pieceIndex]
+    pieceTopRow = 0
+    boardCenter = app.cols//2
+    app.pieceCols = len(app.pieceShape[0])
+    app.pieceRows = len(app.pieceShape)
+    if app.cols % 2 == 0:
+        pieceLeftCol = boardCenter - math.ceil(app.pieceCols/2)
+    else:
+        pieceLeftCol = boardCenter - math.floor(app.pieceCols/2)
+    return (pieceTopRow, pieceLeftCol)
+    
+def loadPiece(app, pieceIndex): # set left and top corner of piece
+    app.piece = pieceIndex
+    app.pieceTopRow, app.pieceLeftCol = pieceLocation(app, pieceIndex)
+    if not pieceIsLegal(app):
+        app.gameOver = True
+        updateHighScore(app)
+        
+def updateHighScore(app):
+    if app.highScore == None:
+        app.highScore = app.score
+    else:
+        if app.score > app.highScore:
+            app.highScore = app.score
+    
+def drawPiece(app): # draw the piece at appropriate position
+    if app.gameOver ==True:
+        return
+    if app.piece != None:
+        rows, cols = (len(app.pieceShape),
+                     len(app.pieceShape[0]))
+        color = app.tetrisPieceColors[app.piece]
+        for row in range(rows):
+            for col in range(cols):
+                if app.pieceShape[row][col] == True:
+                    drawCell(app, row+app.pieceTopRow, col+app.pieceLeftCol, color)
+
+def onKeyPress(app, key):
+    if not app.instructions == True:
+        if key == 'p': app.paused = not app.paused
+        elif key == 'r' and app.gameOver == True: reset(app)
+        elif key == 'left': movePiece(app, 0, -1)
+        elif key == 'right': movePiece(app, 0, 1)
+        elif key == 'down': rotatePieceCounterClockwise(app)
+        elif key == 'space': hardDropPiece(app)
+        elif key == 'up': rotatePieceClockwise(app)
+
+def rotatePieceClockwise(app):
+    oldPiece = app.pieceShape
+    oldTopRow = app.pieceTopRow
+    oldLeftCol = app.pieceLeftCol
+    oldRows, oldCols = app.pieceRows, app.pieceCols
+    app.pieceShape = rotate2dListClockwise(oldPiece)
+    
+    app.pieceRows, app.pieceCols = oldCols, oldRows
+    
+    centerRow = oldTopRow + oldRows//2
+    newRows = oldCols
+    app.pieceTopRow = centerRow - newRows//2
+    
+    centerCol = oldLeftCol + oldCols//2
+    newCols = oldRows
+    app.pieceLeftCol = centerCol - newCols//2
+    
+    if not pieceIsLegal(app):
+        app.pieceShape = oldPiece
+        app.pieceTopRow = oldTopRow
+        app.pieceLeftCol = oldLeftCol
+        app.pieceRows, app.pieceCols = oldRows, oldCols
+    
+def rotate2dListClockwise(L):
+    oldRow, oldCol = len(L), len(L[0])
+    newRow, newCol = oldCol, oldRow
+    
+    M = [[None]*newCol for row in range(newRow)]
+    for col in range(oldCol):
+        currentRow = []
+        for row in range(oldRow):
+            currentRow.append(L[row][col])
+        currentRow.reverse()
+        M[col] = currentRow
+    return M
+    
+def rotatePieceCounterClockwise(app):
+    oldPiece = app.pieceShape
+    oldTopRow = app.pieceTopRow
+    oldLeftCol = app.pieceLeftCol
+    oldRows, oldCols = app.pieceRows, app.pieceCols
+    app.pieceShape = rotate2dListCounterClockwise(oldPiece)
+    
+    app.pieceRows, app.pieceCols = oldCols, oldRows
+    
+    centerRow = oldTopRow + oldRows//2
+    newRows = oldCols
+    app.pieceTopRow = centerRow - newRows//2
+    
+    centerCol = oldLeftCol + oldCols//2
+    newCols = oldRows
+    app.pieceLeftCol = centerCol - newCols//2
+    
+    if not pieceIsLegal(app):
+        app.pieceShape = oldPiece
+        app.pieceTopRow = oldTopRow
+        app.pieceLeftCol = oldLeftCol
+        app.pieceRows, app.pieceCols = oldRows, oldCols
+        
+def rotate2dListCounterClockwise(L):
+    oldRow, oldCol = len(L), len(L[0])
+    newRow, newCol = oldCol, oldRow
+    
+    M = [[None]*newCol for row in range(newRow)]
+    for col in range(oldCol):
+        currentRow = []
+        for row in range(oldRow):
+            currentRow.append(L[row][col])
+        #currentRow.reverse()
+        M[-col-1] = currentRow
+    return M
+
+def movePiece(app, drow, dcol):
+    moved = False
+    app.pieceTopRow += drow
+    app.pieceLeftCol += dcol
+    if not pieceIsLegal(app):
+        app.pieceTopRow -= drow
+        app.pieceLeftCol -= dcol
+    else:
+        moved = True
+    return moved
+
+def hardDropPiece(app):
+    while movePiece(app, 1, 0):
+        pass
+
+def pieceIsLegal(app):
+    if (app.pieceTopRow >= 0 and app.pieceTopRow + app.pieceRows <= app.rows and
+        app.pieceLeftCol >= 0 and app.pieceLeftCol + app.pieceCols <= app.cols):
+        for row in range(app.pieceRows):
+            for col in range(app.pieceCols):
+                    if app.pieceShape[row][col] == True and app.board[row+app.pieceTopRow][col + app.pieceLeftCol] != None:
+                        return False
+        return True
+    else: 
+        return False
+        
+def loadNextPiece(app):
+    app.nextPieceIndex = random.randrange(len(app.tetrisPieces))
+    loadPiece(app, app.nextPieceIndex)
+    
+def onStep(app):
+    if not app.paused and not app.gameOver:
+        if not app.instructions:
+            takeStep(app)
+
+def takeStep(app):
+     if not movePiece(app, 1, 0):
+         placePieceOnBoard(app)
+         removeFullRows(app)
+         loadNextPiece(app)
+         
+def placePieceOnBoard(app): 
+    for row in range(app.pieceRows):
+        for col in range(app.pieceCols):
+            if app.pieceShape[row][col] == True:
+                app.board[row+app.pieceTopRow][col + app.pieceLeftCol] = app.tetrisPieceColors[app.piece]
+
+def removeFullRows(app):
+    fullRows = 0
+    loopedOver = 0
+    while loopedOver < (len(app.board)):
+        if None not in app.board[loopedOver]:
+            app.board.pop(loopedOver)
+            fullRows += 1
+        else:
+            loopedOver += 1
+    for row in range(fullRows):
+        app.board.insert(0, [None]*app.cols)
+    adjustScore(app, fullRows)
+    
+def adjustScore(app, fullRows):
+    scoreValues = [(0,0),(1,4),(2,10),(3,30),(4,120)]
+    for value in scoreValues:
+        if fullRows == value[0]:
+            app.score += value[1] 
+
+def main():
+    runApp()
+main()
